@@ -31,40 +31,6 @@ namespace ImageResizer
             }
         }
         /// <summary>
-        /// 非同步進行圖片的縮放作業
-        /// </summary>
-        /// <param name="sourcePath">圖片來源目錄路徑</param>
-        /// <param name="destPath">產生圖片目的目錄路徑</param>
-        /// <param name="scale">縮放比例</param>
-        public async Task ResizeImagesAsync(string sourcePath, string destPath, double scale)
-        {
-            var allFiles = FindImages(sourcePath);
-            var taskbag = new ConcurrentBag<Task>();
-            foreach (var filePath in allFiles)
-            {
-                var t = Task.Run(() =>
-                {
-                    Image imgPhoto = Image.FromFile(filePath);
-                    string imgName = Path.GetFileNameWithoutExtension(filePath);
-
-                    int sourceWidth = imgPhoto.Width;
-                    int sourceHeight = imgPhoto.Height;
-
-                    int destionatonWidth = (int)(sourceWidth * scale);
-                    int destionatonHeight = (int)(sourceHeight * scale);
-
-                    Bitmap processedImage = processBitmap((Bitmap)imgPhoto,
-                        sourceWidth, sourceHeight,
-                        destionatonWidth, destionatonHeight);
-
-                    string destFile = Path.Combine(destPath, imgName + ".jpg");
-                    processedImage.Save(destFile, ImageFormat.Jpeg);
-                });
-                taskbag.Add(t);
-            }
-            await Task.WhenAll(taskbag);
-        }
-        /// <summary>
         /// 進行圖片的縮放作業
         /// </summary>
         /// <param name="sourcePath">圖片來源目錄路徑</param>
@@ -128,6 +94,39 @@ namespace ImageResizer
                 new Rectangle(0, 0, srcWidth, srcHeight),
                 GraphicsUnit.Pixel);
             return resizedbitmap;
+        }
+        public async Task ResizeImagesAsync(string sourcePath, string destPath, double scale)
+        {
+
+            var allFiles = FindImages(sourcePath);
+
+            Task[] taskArray = new Task[allFiles.Count];
+
+            int count = 0;
+            foreach (var filePath in allFiles)
+            {
+                taskArray[count] = Task.Run(async () =>
+                {
+                    Image imgPhoto = Image.FromFile(filePath);
+
+                    string imgName = Path.GetFileNameWithoutExtension(filePath);
+                    string destFile = Path.Combine(destPath, imgName + ".jpg");
+
+                    int sourceWidth = imgPhoto.Width;
+                    int sourceHeight = imgPhoto.Height;
+
+                    int destionatonWidth = (int)(sourceWidth * scale);
+                    int destionatonHeight = (int)(sourceHeight * scale);
+
+                    var processedImage = processBitmap((Bitmap)imgPhoto,
+                            sourceWidth, sourceHeight,
+                            destionatonWidth, destionatonHeight);
+
+                     processedImage.Save(destFile, ImageFormat.Jpeg);
+                });
+                count++;
+            }
+            await Task.WhenAll(taskArray);
         }
     }
 }
